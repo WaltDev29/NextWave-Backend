@@ -53,6 +53,6 @@ db_data/
 logs/
 *.log
 
-# Alembic migrations (If you want to ignore local sqlite DBs, etc.)
+# Local Database files (e.g. SQLite)
 *.sqlite3
 *.db
