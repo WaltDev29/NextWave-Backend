@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: nextwave-db
+    restart: always
+    env_file:
+      - ../env/.env.db
+    volumes:
+      - ../../services/db:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  api:
+    build:
+      context: ../../services/api
+      dockerfile: Dockerfile
+    container_name: nextwave-api
+    restart: always
+    env_file:
+      - ../env/.env.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../services/api:/app
+    depends_on:
+      - db
