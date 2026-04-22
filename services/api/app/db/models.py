@@ -87,12 +87,26 @@ class Memo(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    author = relationship("User")
+    mentions = relationship("MemoMention", backref="memo", cascade="all, delete-orphan")
+    comments = relationship("Comment", backref="memo", cascade="all, delete-orphan")
+
+    @property
+    def author_name(self):
+        return self.author.username if self.author else "알 수 없음"
+
 class MemoMention(Base):
     __tablename__ = "memo_mentions"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     memo_id = Column(Integer, ForeignKey("memos.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    user = relationship("User")
+
+    @property
+    def user_name(self):
+        return self.user.username if self.user else "알 수 없음"
 
 class Comment(Base):
     __tablename__ = "comments"
@@ -102,6 +116,12 @@ class Comment(Base):
     author_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    author = relationship("User")
+
+    @property
+    def author_name(self):
+        return self.author.username if self.author else "알 수 없음"
 
 class Notification(Base):
     __tablename__ = "notifications"

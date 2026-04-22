@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.config import settings
 from app.db.database import get_db
-from app.api.routers import auth, users, teams, schedules
+from app.api.routers import auth, users, teams, schedules, memos
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -39,5 +39,8 @@ def create_app() -> FastAPI:
     app.include_router(teams.router, prefix=settings.API_V1_STR)
     app.include_router(schedules.router, prefix=settings.API_V1_STR)
     app.include_router(schedules.team_schedules_router, prefix=settings.API_V1_STR)
+    app.include_router(memos.router, prefix=settings.API_V1_STR)
+    app.include_router(memos.team_memos_router, prefix=settings.API_V1_STR)
+    app.include_router(memos.schedule_memos_router, prefix=settings.API_V1_STR)
 
     return app

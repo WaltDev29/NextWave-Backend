@@ -1,0 +1,202 @@
+import math
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.api import deps
+from app.db.models import Memo, MemoMention, Comment, User, RoleEnum
+from app.schemas.memo import (
+    MemoCreate, MemoUpdate, MemoResponse, MemoDetailResponse,
+    CommentCreate, CommentResponse,
+)
+
+router = APIRouter(prefix="/memos", tags=["memos"])
+team_memos_router = APIRouter(prefix="/teams", tags=["memos"])
+schedule_memos_router = APIRouter(prefix="/schedules", tags=["memos"])
+
+
+# =======================================================
+# 팀/일정 하위 라우터 파트
+# =======================================================
+@team_memos_router.get("/{team_id}/memos", response_model=List[MemoResponse])
+def get_team_memos(
+    team_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """팀의 전체 메모 목록 (최신순)"""
+    deps.check_team_membership(db, team_id, current_user.id)
+    return db.query(Memo).filter(Memo.team_id == team_id).order_by(Memo.created_at.desc()).all()
+
+
+@schedule_memos_router.get("/{schedule_id}/memos", response_model=List[MemoResponse])
+def get_schedule_memos(
+    schedule_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """특정 일정에 달린 메모 목록"""
+    memos = db.query(Memo).filter(Memo.schedule_id == schedule_id).order_by(Memo.created_at.desc()).all()
+    if memos:
+        deps.check_team_membership(db, memos[0].team_id, current_user.id)
+    return memos
+
+
+# =======================================================
+# 메모 CRUD 파트
+# =======================================================
+@router.post("/", response_model=MemoResponse)
+def create_memo(
+    *,
+    db: Session = Depends(deps.get_db),
+    memo_in: MemoCreate,
+    current_user: User = Depends(deps.get_current_user),
+):
+    """메모 생성. 팀 소속 멤버만 가능하며, 생성과 동시에 멘션 DB 삽입"""
+    deps.check_team_membership(db, memo_in.team_id, current_user.id, required_roles=[RoleEnum.leader, RoleEnum.member])
+
+    memo = Memo(
+        title=memo_in.title,
+        content=memo_in.content,
+        author_id=current_user.id,
+        team_id=memo_in.team_id,
+        schedule_id=memo_in.schedule_id,
+    )
+    db.add(memo)
+    db.flush()  # id 확보를 위해 flush (commit 전)
+
+    # 멘션 대상자 일괄 삽입
+    for uid in (memo_in.mentions or []):
+        db.add(MemoMention(memo_id=memo.id, user_id=uid))
+
+    db.commit()
+    db.refresh(memo)
+    return memo
+
+
+@router.get("/{memo_id}", response_model=MemoDetailResponse)
+def get_memo(
+    memo_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """메모 단건 상세 조회 (멘션 유저 및 댓글 목록 포함)"""
+    memo = db.query(Memo).filter(Memo.id == memo_id).first()
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
+    deps.check_team_membership(db, memo.team_id, current_user.id)
+    return memo
+
+
+@router.put("/{memo_id}", response_model=MemoResponse)
+def update_memo(
+    memo_id: int,
+    memo_in: MemoUpdate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """메모 수정 (작성자 본인만 가능). 멘션 목록이 주어지면 기존 멘션을 전부 교체"""
+    memo = db.query(Memo).filter(Memo.id == memo_id).first()
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
+    if memo.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="메모는 작성자 본인만 수정할 수 있습니다.")
+
+    if memo_in.title is not None:
+        memo.title = memo_in.title
+    if memo_in.content is not None:
+        memo.content = memo_in.content
+    if memo_in.schedule_id is not None:
+        memo.schedule_id = memo_in.schedule_id
+
+    # 멘션 교체 (명시적으로 제공된 경우에만)
+    if memo_in.mentions is not None:
+        db.query(MemoMention).filter(MemoMention.memo_id == memo.id).delete()
+        for uid in memo_in.mentions:
+            db.add(MemoMention(memo_id=memo.id, user_id=uid))
+
+    db.commit()
+    db.refresh(memo)
+    return memo
+
+
+@router.delete("/{memo_id}", status_code=204)
+def delete_memo(
+    memo_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """메모 삭제 (작성자 또는 팀 리더만 가능)"""
+    memo = db.query(Memo).filter(Memo.id == memo_id).first()
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
+
+    membership = deps.check_team_membership(db, memo.team_id, current_user.id)
+    if memo.author_id != current_user.id and membership.role != RoleEnum.leader:
+        raise HTTPException(status_code=403, detail="메모 삭제는 작성자 혹은 팀 리더만 가능합니다.")
+
+    db.delete(memo)
+    db.commit()
+
+
+# =======================================================
+# 댓글 CRUD 파트
+# =======================================================
+@router.post("/{memo_id}/comments", response_model=CommentResponse)
+def create_comment(
+    memo_id: int,
+    comment_in: CommentCreate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """메모에 댓글 작성 (팀 소속이면 누구든 가능)"""
+    memo = db.query(Memo).filter(Memo.id == memo_id).first()
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
+    deps.check_team_membership(db, memo.team_id, current_user.id)
+
+    comment = Comment(
+        memo_id=memo_id,
+        author_id=current_user.id,
+        content=comment_in.content,
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+@router.get("/{memo_id}/comments", response_model=List[CommentResponse])
+def get_comments(
+    memo_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """메모의 전체 댓글 목록 조회 (오래된 순)"""
+    memo = db.query(Memo).filter(Memo.id == memo_id).first()
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
+    deps.check_team_membership(db, memo.team_id, current_user.id)
+
+    return db.query(Comment).filter(Comment.memo_id == memo_id).order_by(Comment.created_at.asc()).all()
+
+
+@router.delete("/{memo_id}/comments/{comment_id}", status_code=204)
+def delete_comment(
+    memo_id: int,
+    comment_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """댓글 삭제 (작성자 혹은 팀 리더만 가능)"""
+    comment = db.query(Comment).filter(Comment.id == comment_id, Comment.memo_id == memo_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="댓글을 찾을 수 없습니다.")
+
+    memo = db.query(Memo).filter(Memo.id == memo_id).first()
+    membership = deps.check_team_membership(db, memo.team_id, current_user.id)
+    if comment.author_id != current_user.id and membership.role != RoleEnum.leader:
+        raise HTTPException(status_code=403, detail="댓글 삭제는 작성자 혹은 팀 리더만 가능합니다.")
+
+    db.delete(comment)
+    db.commit()
