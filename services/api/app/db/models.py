@@ -68,6 +68,13 @@ class ScheduleAssignee(Base):
     schedule_id = Column(Integer, ForeignKey("schedules.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
+    schedule = relationship("Schedule", backref="assignees")
+    user = relationship("User")
+
+    @property
+    def user_name(self):
+        return self.user.username if self.user else "알 수 없음"
+
 class Memo(Base):
     __tablename__ = "memos"
 

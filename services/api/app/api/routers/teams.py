@@ -8,23 +8,6 @@ from app.schemas.team import TeamCreate, TeamUpdate, TeamResponse, TeamMemberCre
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
-def check_team_membership(db: Session, team_id: int, user_id: int, required_roles: List[RoleEnum] = None):
-    """
-    팀 속 소속 및 권한 체크 유틸리티
-    """
-    membership = db.query(TeamMember).filter(
-        TeamMember.team_id == team_id,
-        TeamMember.user_id == user_id
-    ).first()
-    
-    if not membership:
-        raise HTTPException(status_code=403, detail="팀에 접근할 수 있는 권한이 없습니다.")
-    
-    if required_roles and membership.role not in required_roles:
-        raise HTTPException(status_code=403, detail="이 작업을 수행하기 위해서는 'leader' 권한이 필요합니다.")
-        
-    return membership
-
 @router.post("/", response_model=TeamResponse)
 def create_team(
     *,
@@ -65,7 +48,7 @@ def read_team(
     current_user: User = Depends(deps.get_current_user),
 ):
     """특정 팀 조회 (팀 멤버만 가능)"""
-    check_team_membership(db, team_id, current_user.id)
+    deps.check_team_membership(db, team_id, current_user.id)
     team = db.query(Team).filter(Team.id == team_id).first()
     return team
 
@@ -77,7 +60,7 @@ def update_team(
     current_user: User = Depends(deps.get_current_user),
 ):
     """팀 정보 수정 (leader만 가능)"""
-    check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
+    deps.check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
     
     team = db.query(Team).filter(Team.id == team_id).first()
     team.name = team_in.name
@@ -92,7 +75,7 @@ def delete_team(
     current_user: User = Depends(deps.get_current_user),
 ):
     """팀 완전 삭제 (leader만 가능)"""
-    check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
+    deps.check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
     
     team = db.query(Team).filter(Team.id == team_id).first()
     db.delete(team)
@@ -107,7 +90,7 @@ def read_team_members(
     current_user: User = Depends(deps.get_current_user),
 ):
     """팀의 멤버 목록 조회"""
-    check_team_membership(db, team_id, current_user.id)
+    deps.check_team_membership(db, team_id, current_user.id)
     members = db.query(TeamMember).filter(TeamMember.team_id == team_id).all()
     return members
 
@@ -119,7 +102,7 @@ def add_team_member(
     current_user: User = Depends(deps.get_current_user),
 ):
     """이메일을 받아 해당 유저를 팀원으로 초대 (leader만 가능)"""
-    check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
+    deps.check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
     
     user_to_invite = db.query(User).filter(User.email == member_in.email).first()
     if not user_to_invite:
@@ -150,7 +133,7 @@ def remove_team_member(
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="리더 스스로를 내보낼 수는 없습니다. 위임 혹은 팀 삭제를 이용하세요.")
         
-    check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
+    deps.check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
     
     member_to_remove = db.query(TeamMember).filter(TeamMember.team_id == team_id, TeamMember.user_id == user_id).first()
     if not member_to_remove:
