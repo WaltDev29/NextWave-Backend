@@ -2,10 +2,10 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
 
-# 공통 프로퍼티
 class UserBase(BaseModel):
     email: EmailStr
     username: str
+    image_path: Optional[str] = None
 
 # 생성 프로퍼티
 class UserCreate(UserBase):
