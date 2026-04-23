@@ -24,7 +24,7 @@ function Avatar({ name, src, size = 44 }: { name: string; src?: string | null; s
 }
 
 const STATUS_LABELS: Record<ScheduleStatus, string> = {
-  PENDING: '대기', IN_PROGRESS: '진행 중', DONE: '완료', CANCELLED: '취소',
+  PENDING: '대기', IN_PROGRESS: '진행 중', COMPLETED: '완료', CANCELLED: '취소',
 };
 
 // ===== 멤버 탭 =====
@@ -127,7 +127,7 @@ function SchedulesTab({ teamId }: { teamId: number }) {
               <select value={s.status}
                 onChange={(e) => statusMut.mutate({ id: s.id, status: e.target.value as ScheduleStatus })}
                 style={{ width: 'auto', padding: '6px 10px', borderRadius: '8px' }}>
-                {(['PENDING', 'IN_PROGRESS', 'DONE', 'CANCELLED'] as ScheduleStatus[]).map((st) => (
+                {(['PENDING', 'IN_PROGRESS', 'COMPLETED'] as ScheduleStatus[]).map((st) => (
                   <option key={st} value={st}>{STATUS_LABELS[st]}</option>
                 ))}
               </select>
@@ -165,6 +165,15 @@ function MemosTab({ teamId }: { teamId: number }) {
   const [selectedMemo, setSelectedMemo] = useState<number | null>(null);
   const [comment, setComment] = useState('');
   const qc = useQueryClient();
+  const { user } = useAuthStore();
+
+  // 내 역할 확인을 위해 멤버 목록 조회
+  const { data: members = [] } = useQuery({
+    queryKey: ['members', teamId],
+    queryFn: () => teamsApi.getMembers(teamId).then((r) => r.data),
+  });
+  const myRole = members.find((m) => m.user_id === user?.id)?.role;
+  const isGuest = myRole === 'guest';
 
   const { data: memos = [] } = useQuery({
     queryKey: ['memos', teamId],
@@ -231,8 +240,16 @@ function MemosTab({ teamId }: { teamId: number }) {
             {memoDetail.comments?.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>댓글이 없습니다.</p>}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="댓글 입력..." onKeyDown={(e) => e.key === 'Enter' && comment && commentMut.mutate()} />
-            <button className="btn btn-primary btn-sm" disabled={!comment} onClick={() => commentMut.mutate()}>전송</button>
+            {isGuest ? (
+              <div style={{ flex: 1, padding: '10px', background: 'var(--bg-elevated)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                게스트는 댓글을 작성할 수 없습니다.
+              </div>
+            ) : (
+              <>
+                <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="댓글 입력..." onKeyDown={(e) => e.key === 'Enter' && comment && commentMut.mutate()} />
+                <button className="btn btn-primary btn-sm" disabled={!comment} onClick={() => commentMut.mutate()}>전송</button>
+              </>
+            )}
           </div>
         </div>
       )}

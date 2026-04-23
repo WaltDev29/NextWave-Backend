@@ -23,7 +23,7 @@ export interface TeamMember {
   role: 'leader' | 'member' | 'guest';
 }
 
-export type ScheduleStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+export type ScheduleStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export interface Schedule {
   id: number;
