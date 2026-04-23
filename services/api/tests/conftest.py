@@ -1,3 +1,4 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
@@ -9,9 +10,12 @@ from app.db.models import User, Team, TeamMember, RoleEnum
 from app.core.security import get_password_hash
 
 # ============================================================
-# 테스트 DB 설정 (nextwave_test 별도 격리 DB 사용)
+# 테스트 DB 설정
+# CI 환경: TEST_DATABASE_URL 환경변수로 주입 (localhost:3306)
+# 로컬 환경: Docker 네트워크 호스트명(nextwave-db) 기본값 사용
 # ============================================================
-TEST_DATABASE_URL = "mysql+pymysql://nextwave_user:user_password!@nextwave-db:3306/nextwave_test"
+_default_url = "mysql+pymysql://nextwave_user:user_password!@nextwave-db:3306/nextwave_test"
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", _default_url)
 
 test_engine = create_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
