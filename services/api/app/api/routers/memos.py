@@ -153,11 +153,11 @@ def create_comment(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
-    """메모에 댓글 작성 (팀 소속이면 누구든 가능)"""
+    """메모에 댓글 작성 (리더 또는 멤버만 가능)"""
     memo = db.query(Memo).filter(Memo.id == memo_id).first()
     if not memo:
         raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
-    deps.check_team_membership(db, memo.team_id, current_user.id)
+    deps.check_team_membership(db, memo.team_id, current_user.id, required_roles=[RoleEnum.leader, RoleEnum.member])
 
     comment = Comment(
         memo_id=memo_id,
