@@ -11,9 +11,8 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
-# 비밀번호 변경 등 업데이트 
+# 일반 정보 업데이트 (이미지는 PATCH /me/image 로 따로 처리)
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
     username: Optional[str] = None
     password: Optional[str] = None
 

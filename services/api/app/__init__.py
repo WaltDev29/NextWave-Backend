@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from pathlib import Path
 from app.core.config import settings
 from app.db.database import get_db
 from app.api.routers import auth, users, teams, schedules, memos, notifications
@@ -35,6 +37,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # 업로드 디렉토리 자동 생성 (없으면 StaticFiles 마운트 오류 방지)
+    upload_root = Path("/app/static/uploads")
+    (upload_root / "users").mkdir(parents=True, exist_ok=True)
+    (upload_root / "teams").mkdir(parents=True, exist_ok=True)
+    app.mount("/static", StaticFiles(directory="/app/static"), name="static")
 
     @app.get("/")
     def read_root():

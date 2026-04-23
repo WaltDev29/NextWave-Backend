@@ -1,10 +1,14 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.db.models import Team, TeamMember, User, RoleEnum
 from app.schemas.team import TeamCreate, TeamUpdate, TeamResponse, TeamMemberCreate, TeamMemberResponse
+from app.core.logger import get_logger
+from app.core.file_upload import save_upload_image
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/teams", tags=["🧑‍🤝‍🧑 팀 (Teams)"])
 
@@ -56,6 +60,25 @@ def delete_team(team_id: int, db: Session = Depends(deps.get_db), current_user: 
     team = db.query(Team).filter(Team.id == team_id).first()
     db.delete(team)
     db.commit()
+
+
+@router.patch("/{team_id}/image", response_model=TeamResponse, summary="팀 이미지 업로드", responses={**_401, **_403, 400: {"description": "허용되지 않는 파일 형식 또는 크기 초과"}})
+async def upload_team_image(
+    team_id: int,
+    file: UploadFile = File(..., description="JPG, PNG, WEBP, GIF (최대 5MB)"),
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """팀 프로필 이미지를 업로드합니다. **leader 권한**만 가능하며, 기존 이미지가 있으면 자동 교체됩니다."""
+    deps.check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
+    team = db.query(Team).filter(Team.id == team_id).first()
+
+    image_path = await save_upload_image(file, subdir="teams", old_path=team.image_path)
+    team.image_path = image_path
+    db.commit()
+    db.refresh(team)
+    logger.info("[팀 이미지 업로드] team_id=%s, path=%s", team_id, image_path)
+    return team
 
 # --- Team Members API ---
 
