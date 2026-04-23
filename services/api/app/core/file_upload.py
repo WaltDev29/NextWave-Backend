@@ -64,3 +64,21 @@ async def save_upload_image(file: UploadFile, subdir: str, old_path: str | None 
 
     # DB에 저장할 URL 경로 반환
     return f"/static/uploads/{subdir}/{filename}"
+
+
+def delete_image(image_path: str | None):
+    """
+    서버 파일 시스템에서 실제 이미지 파일을 삭제한다.
+    :param image_path: DB에 저장된 상대 경로 (예: "/static/uploads/users/abc.jpg")
+    """
+    if not image_path:
+        return
+
+    # 상대 경로를 절대 경로로 변환
+    abs_path = Path("/app") / image_path.lstrip("/")
+    try:
+        if abs_path.exists() and abs_path.is_file():
+            os.remove(abs_path)
+    except Exception as e:
+        # 파일 삭제 중 발생하는 오류는 로깅만 하고 무시 (데이터 삭제가 더 중요하므로)
+        print(f"[이미지 삭제 실패] path={abs_path}, error={e}")

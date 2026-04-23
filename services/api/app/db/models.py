@@ -28,6 +28,11 @@ class Team(Base):
     image_path = Column(String(255), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
+    # 관계 설정: 팀 삭제 시 연관된 데이터도 함께 삭제 (Cascade)
+    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    schedules = relationship("Schedule", back_populates="team", cascade="all, delete-orphan")
+    memos = relationship("Memo", back_populates="team", cascade="all, delete-orphan")
+
 class TeamMember(Base):
     __tablename__ = "team_members"
 
@@ -36,7 +41,7 @@ class TeamMember(Base):
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(Enum(RoleEnum), nullable=False)
 
-    team = relationship("Team", backref="members")
+    team = relationship("Team", back_populates="members")
     user = relationship("User", backref="team_memberships")
 
     @property
@@ -61,6 +66,11 @@ class Schedule(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    team = relationship("Team", back_populates="schedules")
+    # 관계 설정: 일정 삭제 시 연관된 담당자 및 알림도 삭제
+    assignees = relationship("ScheduleAssignee", back_populates="schedule", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="schedule", cascade="all, delete-orphan")
+
 class ScheduleAssignee(Base):
     __tablename__ = "schedule_assignees"
 
@@ -68,7 +78,7 @@ class ScheduleAssignee(Base):
     schedule_id = Column(Integer, ForeignKey("schedules.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
-    schedule = relationship("Schedule", backref="assignees")
+    schedule = relationship("Schedule", back_populates="assignees")
     user = relationship("User")
 
     @property
@@ -87,6 +97,7 @@ class Memo(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    team = relationship("Team", back_populates="memos")
     author = relationship("User")
     mentions = relationship("MemoMention", backref="memo", cascade="all, delete-orphan")
     comments = relationship("Comment", backref="memo", cascade="all, delete-orphan")
@@ -133,5 +144,5 @@ class Notification(Base):
     is_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
-    schedule = relationship("Schedule")
+    schedule = relationship("Schedule", back_populates="notifications")
     user = relationship("User")
