@@ -6,7 +6,7 @@ from app.api import deps
 from app.db.models import Team, TeamMember, User, RoleEnum
 from app.schemas.team import TeamCreate, TeamUpdate, TeamResponse, TeamMemberCreate, TeamMemberResponse
 from app.core.logger import get_logger
-from app.core.file_upload import save_upload_image
+from app.core.file_upload import save_upload_image, delete_image
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,7 @@ _404 = {404: {"description": "팀 또는 유저를 찾을 수 없음"}}
 @router.post("/", response_model=TeamResponse, summary="팀 생성", responses={**_401})
 def create_team(*, db: Session = Depends(deps.get_db), team_in: TeamCreate, current_user: User = Depends(deps.get_current_user)):
     """새 팀을 만들고, 생성자는 자동으로 **leader** 권한의 멤버로 등록됩니다."""
-    team = Team(name=team_in.name, description=team_in.description, image_path=team_in.image_path)
+    team = Team(name=team_in.name, description=team_in.description)
     db.add(team)
     db.commit()
     db.refresh(team)
@@ -47,8 +47,6 @@ def update_team(team_id: int, team_in: TeamUpdate, db: Session = Depends(deps.ge
         team.name = team_in.name
     if team_in.description is not None:
         team.description = team_in.description
-    if team_in.image_path is not None:
-        team.image_path = team_in.image_path
     db.commit()
     db.refresh(team)
     return team
@@ -58,6 +56,10 @@ def delete_team(team_id: int, db: Session = Depends(deps.get_db), current_user: 
     """팀을 완전히 삭제합니다. **leader 권한**만 가능하며, 연관된 모든 일정·메모도 함께 삭제됩니다(CASCADE)."""
     deps.check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
     team = db.query(Team).filter(Team.id == team_id).first()
+    
+    # 이미지 파일 먼저 삭제
+    delete_image(team.image_path)
+    
     db.delete(team)
     db.commit()
 

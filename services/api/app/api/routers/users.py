@@ -6,7 +6,7 @@ from app.core.security import get_password_hash
 from app.db.models import User
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
 from app.core.logger import get_logger
-from app.core.file_upload import save_upload_image
+from app.core.file_upload import save_upload_image, delete_image
 
 logger = get_logger(__name__)
 
@@ -100,3 +100,25 @@ def update_user_me(
     db.refresh(current_user)
     logger.info("[유저 정보 수정] user_id=%s", current_user.id)
     return current_user
+
+
+@router.delete(
+    "/me",
+    status_code=204,
+    summary="회원 탈퇴",
+    responses={**_401}
+)
+def delete_user_me(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """
+    현재 로그인한 계정을 삭제합니다. 소속된 팀 멤버 정보가 삭제되며, 프로필 이미지 파일도 서버에서 제거됩니다.
+    (팀의 리더인 경우 팀을 먼저 삭제하거나 리더를 위임해야 탈퇴할 수 있도록 하는 로직은 추후 확장 가능)
+    """
+    # 이미지 파일 삭제
+    delete_image(current_user.image_path)
+
+    db.delete(current_user)
+    db.commit()
+    logger.info("[회원 탈퇴 완료] user_id=%s, email=%s", current_user.id, current_user.email)
