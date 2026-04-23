@@ -132,3 +132,6 @@ class Notification(Base):
     remind_at = Column(DateTime, nullable=False)
     is_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
+
+    schedule = relationship("Schedule")
+    user = relationship("User")

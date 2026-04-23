@@ -8,6 +8,9 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.db.models import User, TeamMember, RoleEnum
 from app.schemas.token import TokenPayload
+from app.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -22,7 +25,8 @@ def get_current_user(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         token_data = TokenPayload(**payload)
-    except (jwt.PyJWTError, ValidationError):
+    except Exception as e:
+        logger.warning("JWT 디코딩 실패: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="요청을 검증할 수 없습니다. (토큰 만료 혹은 올바르지 않은 값)",
@@ -30,6 +34,7 @@ def get_current_user(
     # 복호화된 ID 기반으로 User 검증
     user = db.query(User).filter(User.id == token_data.sub).first()
     if not user:
+        logger.warning("인증된 회원(id=%s)을 찾을 수 없습니다.", token_data.sub)
         raise HTTPException(status_code=404, detail="인증된 회원을 찾을 수 없습니다.")
     return user
 
@@ -44,9 +49,14 @@ def check_team_membership(db: Session, team_id: int, user_id: int, required_role
     ).first()
     
     if not membership:
+        logger.warning("[팀 접근 거부] user_id=%s → team_id=%s (소속 없음)", user_id, team_id)
         raise HTTPException(status_code=403, detail="팀에 접근할 수 있는 권한이 없습니다.")
     
     if required_roles and membership.role not in required_roles:
+        logger.warning(
+            "[권한 부족] user_id=%s → team_id=%s (현재 역할=%s, 필요 역할=%s)",
+            user_id, team_id, membership.role, required_roles
+        )
         raise HTTPException(status_code=403, detail="이 작업을 수행하기 위한 권한이 부족합니다.")
         
     return membership

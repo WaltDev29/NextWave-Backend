@@ -4,12 +4,28 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.config import settings
 from app.db.database import get_db
-from app.api.routers import auth, users, teams, schedules, memos
+from app.api.routers import auth, users, teams, schedules, memos, notifications
+
+import os
 
 def create_app() -> FastAPI:
+    is_production = os.getenv("APP_ENV", "development") == "production"
+
     app = FastAPI(
-        title=settings.PROJECT_NAME,
-        openapi_url=f"{settings.API_V1_STR}/openapi.json"
+        title="NextWave API",
+        description=(
+            "## NextWave 협업 플랫폼 API\n\n"
+            "팀 기반의 일정 공유, 메모, 댓글, 알림 기능을 제공하는 백엔드 API입니다.\n\n"
+            "### 인증 방법\n"
+            "1. `/api/v1/users/signup` 으로 회원가입\n"
+            "2. `/api/v1/login/access-token` 으로 로그인 후 `access_token` 획득\n"
+            "3. 우측 상단 **Authorize** 버튼에 `Bearer <토큰>` 형식으로 입력"
+        ),
+        version="1.0.0",
+        contact={"name": "NextWave Dev Team", "email": "waltdev29@gmail.com"},
+        openapi_url=f"{settings.API_V1_STR}/openapi.json",
+        docs_url=None if is_production else "/docs",
+        redoc_url=None if is_production else "/redoc",
     )
 
     app.add_middleware(
@@ -42,5 +58,6 @@ def create_app() -> FastAPI:
     app.include_router(memos.router, prefix=settings.API_V1_STR)
     app.include_router(memos.team_memos_router, prefix=settings.API_V1_STR)
     app.include_router(memos.schedule_memos_router, prefix=settings.API_V1_STR)
+    app.include_router(notifications.router, prefix=settings.API_V1_STR)
 
     return app

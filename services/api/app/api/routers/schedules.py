@@ -13,13 +13,18 @@ from app.schemas.schedule import (
     ScheduleAssigneeResponse
 )
 
-router = APIRouter(prefix="/schedules", tags=["schedules"])
-team_schedules_router = APIRouter(prefix="/teams", tags=["schedules"])
+router = APIRouter(prefix="/schedules", tags=["🗓️ 일정 (Schedules)"])
+team_schedules_router = APIRouter(prefix="/teams", tags=["🗓️ 일정 (Schedules)"])
+
+_401 = {401: {"description": "인증 토큰 없음 또는 만료"}}
+_403 = {403: {"description": "해당 팀의 소속 멤버가 아니거나 권한 부족"}}
+_404 = {404: {"description": "일정을 찾을 수 없음"}}
 
 # =======================================================
 # 팀 라우터 파트 (/teams/{team_id}/schedules)
 # =======================================================
-@team_schedules_router.get("/{team_id}/schedules", response_model=List[ScheduleResponse])
+@team_schedules_router.get("/{team_id}/schedules", response_model=List[ScheduleResponse],
+    summary="팀 일정 전체 조회", responses={**_401, **_403})
 def get_team_schedules(
     team_id: int,
     db: Session = Depends(deps.get_db),
@@ -32,7 +37,7 @@ def get_team_schedules(
 # =======================================================
 # 스케쥴 단건 및 수정 파트 (/schedules)
 # =======================================================
-@router.post("/", response_model=ScheduleResponse)
+@router.post("/", response_model=ScheduleResponse, summary="일정 생성", responses={**_401, **_403})
 def create_schedule(
     *,
     db: Session = Depends(deps.get_db),
@@ -58,7 +63,7 @@ def create_schedule(
     db.refresh(schedule)
     return schedule
 
-@router.get("/{schedule_id}", response_model=ScheduleResponse)
+@router.get("/{schedule_id}", response_model=ScheduleResponse, summary="일정 단건 상세 조회", responses={**_401, **_403, **_404})
 def get_schedule(
     schedule_id: int,
     db: Session = Depends(deps.get_db),
@@ -72,7 +77,7 @@ def get_schedule(
     deps.check_team_membership(db, schedule.team_id, current_user.id)
     return schedule
 
-@router.put("/{schedule_id}", response_model=ScheduleResponse)
+@router.put("/{schedule_id}", response_model=ScheduleResponse, summary="일정 수정", responses={**_401, **_403, **_404})
 def update_schedule(
     schedule_id: int,
     schedule_in: ScheduleUpdate,
@@ -103,7 +108,7 @@ def update_schedule(
     db.refresh(schedule)
     return schedule
 
-@router.patch("/{schedule_id}/status", response_model=ScheduleResponse)
+@router.patch("/{schedule_id}/status", response_model=ScheduleResponse, summary="일정 상태 변경 (퀵)", responses={**_401, **_403, **_404})
 def update_schedule_status(
     schedule_id: int,
     status_in: ScheduleStatusUpdate,
@@ -122,7 +127,7 @@ def update_schedule_status(
     db.refresh(schedule)
     return schedule
 
-@router.delete("/{schedule_id}", status_code=204)
+@router.delete("/{schedule_id}", status_code=204, summary="일정 삭제", responses={**_401, **_403, **_404})
 def delete_schedule(
     schedule_id: int,
     db: Session = Depends(deps.get_db),
@@ -143,7 +148,7 @@ def delete_schedule(
 # =======================================================
 # 일정 할당 파트 (/schedules/{id}/assignees)
 # =======================================================
-@router.get("/{schedule_id}/assignees", response_model=List[ScheduleAssigneeResponse])
+@router.get("/{schedule_id}/assignees", response_model=List[ScheduleAssigneeResponse], summary="담당자 목록 조회", responses={**_401, **_403, **_404})
 def get_assignees(
     schedule_id: int,
     db: Session = Depends(deps.get_db),
@@ -157,7 +162,7 @@ def get_assignees(
     
     return db.query(ScheduleAssignee).filter(ScheduleAssignee.schedule_id == schedule_id).all()
 
-@router.post("/{schedule_id}/assignees", status_code=201)
+@router.post("/{schedule_id}/assignees", status_code=201, summary="담당자 다중 배정", responses={**_401, **_403, **_404})
 def add_assignees(
     schedule_id: int,
     assignees_in: ScheduleAssigneeCreate,
@@ -186,7 +191,7 @@ def add_assignees(
     db.commit()
     return {"detail": "담당자 배정 완료"}
 
-@router.delete("/{schedule_id}/assignees/{user_id}", status_code=204)
+@router.delete("/{schedule_id}/assignees/{user_id}", status_code=204, summary="담당자 제거", responses={**_401, **_403, **_404})
 def remove_assignee(
     schedule_id: int,
     user_id: int,

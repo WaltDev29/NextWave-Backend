@@ -10,15 +10,19 @@ from app.schemas.memo import (
     CommentCreate, CommentResponse,
 )
 
-router = APIRouter(prefix="/memos", tags=["memos"])
-team_memos_router = APIRouter(prefix="/teams", tags=["memos"])
-schedule_memos_router = APIRouter(prefix="/schedules", tags=["memos"])
+router = APIRouter(prefix="/memos", tags=["📝 메모 (Memos)"])
+team_memos_router = APIRouter(prefix="/teams", tags=["📝 메모 (Memos)"])
+schedule_memos_router = APIRouter(prefix="/schedules", tags=["📝 메모 (Memos)"])
+
+_401 = {401: {"description": "인증 토큰 없음 또는 만료"}}
+_403 = {403: {"description": "팀 소속이 아니거나 권한 부족"}}
+_404 = {404: {"description": "메모 또는 댓글을 찾을 수 없음"}}
 
 
 # =======================================================
 # 팀/일정 하위 라우터 파트
 # =======================================================
-@team_memos_router.get("/{team_id}/memos", response_model=List[MemoResponse])
+@team_memos_router.get("/{team_id}/memos", response_model=List[MemoResponse], summary="팀 메모 목록 조회", responses={**_401, **_403})
 def get_team_memos(
     team_id: int,
     db: Session = Depends(deps.get_db),
@@ -29,7 +33,7 @@ def get_team_memos(
     return db.query(Memo).filter(Memo.team_id == team_id).order_by(Memo.created_at.desc()).all()
 
 
-@schedule_memos_router.get("/{schedule_id}/memos", response_model=List[MemoResponse])
+@schedule_memos_router.get("/{schedule_id}/memos", response_model=List[MemoResponse], summary="일정 종속 메모 목록", responses={**_401, **_403})
 def get_schedule_memos(
     schedule_id: int,
     db: Session = Depends(deps.get_db),
@@ -45,7 +49,7 @@ def get_schedule_memos(
 # =======================================================
 # 메모 CRUD 파트
 # =======================================================
-@router.post("/", response_model=MemoResponse)
+@router.post("/", response_model=MemoResponse, summary="메모 작성", responses={**_401, **_403})
 def create_memo(
     *,
     db: Session = Depends(deps.get_db),
@@ -74,7 +78,7 @@ def create_memo(
     return memo
 
 
-@router.get("/{memo_id}", response_model=MemoDetailResponse)
+@router.get("/{memo_id}", response_model=MemoDetailResponse, summary="메모 상세 조회 (멘션+댓글 포함)", responses={**_401, **_403, **_404})
 def get_memo(
     memo_id: int,
     db: Session = Depends(deps.get_db),
@@ -88,7 +92,7 @@ def get_memo(
     return memo
 
 
-@router.put("/{memo_id}", response_model=MemoResponse)
+@router.put("/{memo_id}", response_model=MemoResponse, summary="메모 수정", responses={**_401, **_403, **_404})
 def update_memo(
     memo_id: int,
     memo_in: MemoUpdate,
@@ -120,7 +124,7 @@ def update_memo(
     return memo
 
 
-@router.delete("/{memo_id}", status_code=204)
+@router.delete("/{memo_id}", status_code=204, summary="메모 삭제", responses={**_401, **_403, **_404})
 def delete_memo(
     memo_id: int,
     db: Session = Depends(deps.get_db),
@@ -142,7 +146,7 @@ def delete_memo(
 # =======================================================
 # 댓글 CRUD 파트
 # =======================================================
-@router.post("/{memo_id}/comments", response_model=CommentResponse)
+@router.post("/{memo_id}/comments", response_model=CommentResponse, summary="댓글 작성", responses={**_401, **_403, **_404})
 def create_comment(
     memo_id: int,
     comment_in: CommentCreate,
@@ -166,7 +170,7 @@ def create_comment(
     return comment
 
 
-@router.get("/{memo_id}/comments", response_model=List[CommentResponse])
+@router.get("/{memo_id}/comments", response_model=List[CommentResponse], summary="댓글 목록 조회", responses={**_401, **_403, **_404})
 def get_comments(
     memo_id: int,
     db: Session = Depends(deps.get_db),
@@ -181,7 +185,7 @@ def get_comments(
     return db.query(Comment).filter(Comment.memo_id == memo_id).order_by(Comment.created_at.asc()).all()
 
 
-@router.delete("/{memo_id}/comments/{comment_id}", status_code=204)
+@router.delete("/{memo_id}/comments/{comment_id}", status_code=204, summary="댓글 삭제", responses={**_401, **_403, **_404})
 def delete_comment(
     memo_id: int,
     comment_id: int,
