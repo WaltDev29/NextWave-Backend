@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.db.models import Memo, MemoMention, Comment, User, RoleEnum
+from app.db.models import Memo, MemoMention, Comment, User, RoleEnum, AppNotification, NotificationType
 from app.schemas.memo import (
     MemoCreate, MemoUpdate, MemoResponse, MemoDetailResponse,
     CommentCreate, CommentResponse,
@@ -56,7 +56,10 @@ def create_memo(
     memo_in: MemoCreate,
     current_user: User = Depends(deps.get_current_user),
 ):
-    """메모 생성. 팀 소속 멤버만 가능하며, 생성과 동시에 멘션 DB 삽입"""
+    """
+    새 메모를 작성합니다.
+    - **멘션**: `mentions` 필드에 유저 ID 목록을 보내면 해당 유저들에게 **멘션 알림**이 전송됩니다.
+    """
     deps.check_team_membership(db, memo_in.team_id, current_user.id, required_roles=[RoleEnum.leader, RoleEnum.member])
 
     memo = Memo(
@@ -69,9 +72,21 @@ def create_memo(
     db.add(memo)
     db.flush()  # id 확보를 위해 flush (commit 전)
 
-    # 멘션 대상자 일괄 삽입
+    # 멘션 대상자 일괄 삽입 및 알림 생성
     for uid in (memo_in.mentions or []):
         db.add(MemoMention(memo_id=memo.id, user_id=uid))
+        
+        # 중복 방지를 위해 본인 제외
+        if uid != current_user.id:
+            noti = AppNotification(
+                receiver_id=uid,
+                sender_id=current_user.id,
+                type=NotificationType.MEMO_MENTION,
+                title="메모 멘션",
+                content=f"'{memo.title}' 메모에서 당신을 언급했습니다.",
+                related_id=memo.id
+            )
+            db.add(noti)
 
     db.commit()
     db.refresh(memo)
@@ -153,7 +168,10 @@ def create_comment(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
-    """메모에 댓글 작성 (리더 또는 멤버만 가능)"""
+    """
+    특정 메모에 댓글을 작성합니다.
+    - **알림**: 본인 글이 아닌 경우, 메모 작성자에게 **신규 댓글 알림**이 전송됩니다.
+    """
     memo = db.query(Memo).filter(Memo.id == memo_id).first()
     if not memo:
         raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
@@ -165,6 +183,19 @@ def create_comment(
         content=comment_in.content,
     )
     db.add(comment)
+    
+    # 메모 작성자에게 알림 전송 (본인이 쓴 글이 아닐 때만)
+    if memo.author_id != current_user.id:
+        noti = AppNotification(
+            receiver_id=memo.author_id,
+            sender_id=current_user.id,
+            type=NotificationType.COMMENT,
+            title="새 댓글 알림",
+            content=f"귀하의 메모 '{memo.title}'에 새로운 댓글이 달렸습니다.",
+            related_id=memo.id
+        )
+        db.add(noti)
+
     db.commit()
     db.refresh(comment)
     return comment

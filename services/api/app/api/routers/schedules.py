@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.db.models import Schedule, ScheduleAssignee, User, TeamMember, RoleEnum
+from app.db.models import Schedule, ScheduleAssignee, User, TeamMember, RoleEnum, AppNotification, NotificationType
 from app.schemas.schedule import (
     ScheduleCreate,
     ScheduleUpdate,
@@ -169,7 +169,10 @@ def add_assignees(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ):
-    """일정에 담당자들 다중 배정 (user_ids 리스트 기반)"""
+    """
+    일정에 담당자들을 다중 배정합니다.
+    - **알림**: 배정된 각 유저들에게 **일정 배정 알림**이 전송됩니다.
+    """
     schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
     if not schedule:
         raise HTTPException(status_code=404, detail="일정을 찾을 수 없습니다.")
@@ -187,6 +190,17 @@ def add_assignees(
         if not exists:
             assignee = ScheduleAssignee(schedule_id=schedule_id, user_id=uid)
             db.add(assignee)
+            
+            # 알림 생성
+            noti = AppNotification(
+                receiver_id=uid,
+                sender_id=current_user.id,
+                type=NotificationType.SCHEDULE_ASSIGN,
+                title="새로운 일정 배정",
+                content=f"'{schedule.title}' 일정의 담당자로 배정되었습니다.",
+                related_id=schedule_id
+            )
+            db.add(noti)
             
     db.commit()
     return {"detail": "담당자 배정 완료"}
