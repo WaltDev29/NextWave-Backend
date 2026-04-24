@@ -9,6 +9,14 @@ class RoleEnum(str, enum.Enum):
     member = "member"
     guest = "guest"
 
+class NotificationType(str, enum.Enum):
+    TEAM_INVITE = "TEAM_INVITE"           # 팀 초대
+    INVITE_ACCEPTED = "INVITE_ACCEPTED"   # 초대 수락
+    INVITE_REJECTED = "INVITE_REJECTED"   # 초대 거절
+    SCHEDULE_ASSIGN = "SCHEDULE_ASSIGN"    # 일정 배정
+    MEMO_MENTION = "MEMO_MENTION"         # 메모 멘션
+    COMMENT = "COMMENT"                   # 댓글 알림
+
 class User(Base):
     __tablename__ = "users"
 
@@ -146,3 +154,19 @@ class Notification(Base):
 
     schedule = relationship("Schedule", back_populates="notifications")
     user = relationship("User")
+
+class AppNotification(Base):
+    __tablename__ = "app_notifications"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    receiver_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    sender_id = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    type = Column(Enum(NotificationType), nullable=False)
+    title = Column(String(100), nullable=False)
+    content = Column(Text, nullable=False)
+    related_id = Column(Integer, nullable=True)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    receiver = relationship("User", foreign_keys=[receiver_id], backref="notifications")
+    sender = relationship("User", foreign_keys=[sender_id])

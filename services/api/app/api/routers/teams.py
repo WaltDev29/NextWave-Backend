@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.db.models import Team, TeamMember, User, RoleEnum
+from app.db.models import Team, TeamMember, User, RoleEnum, AppNotification, NotificationType
 from app.schemas.team import TeamCreate, TeamUpdate, TeamResponse, TeamMemberCreate, TeamMemberResponse
 from app.core.logger import get_logger
 from app.core.file_upload import save_upload_image, delete_image
@@ -90,20 +90,33 @@ def read_team_members(team_id: int, db: Session = Depends(deps.get_db), current_
     deps.check_team_membership(db, team_id, current_user.id)
     return db.query(TeamMember).filter(TeamMember.team_id == team_id).all()
 
-@router.post("/{team_id}/members", response_model=TeamMemberResponse, summary="팀 멤버 초대 (이메일)", responses={**_401, **_403, **_404})
+@router.post("/{team_id}/members", summary="팀 멤버 초대", responses={**_401, **_403, **_404})
 def add_team_member(team_id: int, member_in: TeamMemberCreate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_user)):
-    """이메일로 가입된 유저를 팀원으로 초대합니다. **leader 권한**만 가능합니다."""
+    """
+    이메일로 가입된 유저에게 **팀 초대 알림**을 발송합니다.
+    - 권한: 팀의 **leader**만 초대 가능합니다.
+    - 프로세스: 이 API 호출 시 유저가 즉시 팀원이 되지 않으며, 유저가 알림함(Inbox)에서 **수락**을 눌러야 가입이 완료됩니다.
+    """
     deps.check_team_membership(db, team_id, current_user.id, required_roles=[RoleEnum.leader])
     user_to_invite = db.query(User).filter(User.email == member_in.email).first()
     if not user_to_invite:
         raise HTTPException(status_code=404, detail="해당 이메일을 사용하는 사용자가 없습니다.")
     if db.query(TeamMember).filter(TeamMember.team_id == team_id, TeamMember.user_id == user_to_invite.id).first():
         raise HTTPException(status_code=400, detail="이미 이 팀에 소속된 사용자입니다.")
-    new_member = TeamMember(team_id=team_id, user_id=user_to_invite.id, role=member_in.role)
-    db.add(new_member)
+    team = db.query(Team).filter(Team.id == team_id).first()
+    
+    # 초대 알림 생성
+    noti = AppNotification(
+        receiver_id=user_to_invite.id,
+        sender_id=current_user.id,
+        type=NotificationType.TEAM_INVITE,
+        title="팀 초대",
+        content=f"'{team.name}' 팀에 {member_in.role} 권한으로 초대되었습니다. [ROLE:{member_in.role}]",
+        related_id=team_id
+    )
+    db.add(noti)
     db.commit()
-    db.refresh(new_member)
-    return new_member
+    return {"message": f"{user_to_invite.username}님에게 초대 알림을 보냈습니다."}
 
 @router.delete("/{team_id}/members/{user_id}", status_code=204, summary="팀 멤버 내보내기", responses={**_401, **_403, **_404})
 def remove_team_member(team_id: int, user_id: int, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_user)):
