@@ -24,6 +24,9 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     username = Column(String(50), nullable=False)
     password_hash = Column(String(255), nullable=False)
+    job = Column(String(50), nullable=True)
+    age = Column(Integer, nullable=False)
+    gender = Column(String(10), nullable=True)
     image_path = Column(String(255), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 

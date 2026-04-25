@@ -33,6 +33,9 @@ def create_user(*, db: Session = Depends(deps.get_db), user_in: UserCreate):
         email=user_in.email,
         username=user_in.username,
         password_hash=get_password_hash(user_in.password),
+        job=user_in.job,
+        age=user_in.age,
+        gender=user_in.gender,
     )
     db.add(user)
     db.commit()
@@ -96,6 +99,12 @@ def update_user_me(
     if user_in.password is not None:
         from app.core.security import get_password_hash
         current_user.password_hash = get_password_hash(user_in.password)
+    if user_in.job is not None:
+        current_user.job = user_in.job
+    if user_in.age is not None:
+        current_user.age = user_in.age
+    if user_in.gender is not None:
+        current_user.gender = user_in.gender
     db.commit()
     db.refresh(current_user)
     logger.info("[유저 정보 수정] user_id=%s", current_user.id)
