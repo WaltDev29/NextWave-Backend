@@ -30,6 +30,7 @@ class TeamMemberCreate(BaseModel):
 
 class TeamMemberResponse(BaseModel):
     id: int
+    user_id: int
     team_name: str
     user_name: str
     role: str

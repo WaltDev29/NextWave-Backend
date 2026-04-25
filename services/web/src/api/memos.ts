@@ -18,11 +18,3 @@ export const memosApi = {
     apiClient.delete(`/memos/${memoId}/comments/${commentId}`),
 };
 
-export const notificationsApi = {
-  listMine: () => apiClient.get('/notifications/me'),
-  create: (scheduleId: number, remindAt: string) =>
-    apiClient.post('/notifications/', { schedule_id: scheduleId, remind_at: remindAt }),
-  update: (id: number, data: { remind_at?: string; is_enabled?: boolean }) =>
-    apiClient.put(`/notifications/${id}`, data),
-  delete: (id: number) => apiClient.delete(`/notifications/${id}`),
-};

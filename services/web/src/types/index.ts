@@ -18,6 +18,8 @@ export interface Team {
 
 export interface TeamMember {
   id: number;
+  team_id: number;
+  user_id: number;
   team_name: string;
   user_name: string;
   role: 'leader' | 'member' | 'guest';
@@ -28,6 +30,7 @@ export type ScheduleStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLE
 export interface Schedule {
   id: number;
   team_id: number;
+  created_by: number;
   title: string;
   description: string | null;
   start_time: string;
@@ -74,3 +77,5 @@ export interface Notification {
   is_enabled: boolean;
   created_at: string;
 }
+
+export * from './notification';

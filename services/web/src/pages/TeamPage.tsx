@@ -28,7 +28,7 @@ const STATUS_LABELS: Record<ScheduleStatus, string> = {
 };
 
 // ===== 멤버 탭 =====
-function MembersTab({ teamId }: { teamId: number }) {
+function MembersTab({ teamId, isLeader }: { teamId: number; isLeader: boolean }) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
   const [msg, setMsg] = useState('');
@@ -46,21 +46,23 @@ function MembersTab({ teamId }: { teamId: number }) {
 
   return (
     <div>
-      {/* 초대 폼 */}
-      <div className="card" style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '20px' }}>
-        <div className="form-group" style={{ flex: 1 }}>
-          <label>이메일로 멤버 초대</label>
-          <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="초대할 이메일 주소" />
+      {/* 초대 폼 (리더만 노출) */}
+      {isLeader && (
+        <div className="card" style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '20px' }}>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label>이메일로 멤버 초대</label>
+            <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="초대할 이메일 주소" />
+          </div>
+          <div className="form-group" style={{ width: '120px' }}>
+            <label>권한</label>
+            <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
+              <option value="member">멤버</option>
+              <option value="guest">게스트</option>
+            </select>
+          </div>
+          <button className="btn btn-primary" disabled={!inviteEmail} onClick={() => inviteMutation.mutate()}>초대</button>
         </div>
-        <div className="form-group" style={{ width: '120px' }}>
-          <label>권한</label>
-          <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
-            <option value="member">멤버</option>
-            <option value="guest">게스트</option>
-          </select>
-        </div>
-        <button className="btn btn-primary" disabled={!inviteEmail} onClick={() => inviteMutation.mutate()}>초대</button>
-      </div>
+      )}
       {msg && <p style={{ marginBottom: '12px', color: msg.includes('완료') ? 'var(--success)' : 'var(--danger)', fontSize: '13px' }}>{msg}</p>}
 
       {/* 멤버 목록 */}
@@ -80,12 +82,13 @@ function MembersTab({ teamId }: { teamId: number }) {
 }
 
 // ===== 일정 탭 =====
-function SchedulesTab({ teamId }: { teamId: number }) {
+function SchedulesTab({ teamId, isLeader }: { teamId: number; isLeader: boolean }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const qc = useQueryClient();
+  const { user } = useAuthStore();
 
   const { data: schedules = [] } = useQuery({
     queryKey: ['schedules', teamId],
@@ -107,9 +110,11 @@ function SchedulesTab({ teamId }: { teamId: number }) {
 
   return (
     <div>
-      <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ 일정 추가</button>
-      </div>
+      {isLeader && (
+        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ 일정 추가</button>
+        </div>
+      )}
 
       {schedules.length === 0 ? (
         <div className="empty-state"><div style={{ fontSize: '40px' }}>📅</div><p>등록된 일정이 없습니다.</p></div>
@@ -131,7 +136,9 @@ function SchedulesTab({ teamId }: { teamId: number }) {
                   <option key={st} value={st}>{STATUS_LABELS[st]}</option>
                 ))}
               </select>
-              <button className="btn btn-danger btn-sm" onClick={() => deleteMut.mutate(s.id)}>삭제</button>
+              {(isLeader || s.created_by === user?.id) && (
+                <button className="btn btn-danger btn-sm" onClick={() => deleteMut.mutate(s.id)}>삭제</button>
+              )}
             </div>
           ))}
         </div>
@@ -158,7 +165,7 @@ function SchedulesTab({ teamId }: { teamId: number }) {
 }
 
 // ===== 메모 탭 =====
-function MemosTab({ teamId }: { teamId: number }) {
+function MemosTab({ teamId, isLeader }: { teamId: number; isLeader: boolean }) {
   const [showCreate, setShowCreate] = useState(false);
   const [memoTitle, setMemoTitle] = useState('');
   const [memoContent, setMemoContent] = useState('');
@@ -201,9 +208,11 @@ function MemosTab({ teamId }: { teamId: number }) {
     <div style={{ display: 'grid', gridTemplateColumns: selectedMemo ? '1fr 1fr' : '1fr', gap: '20px' }}>
       {/* 목록 */}
       <div>
-        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ 메모 작성</button>
-        </div>
+        {!isGuest && (
+          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ 메모 작성</button>
+          </div>
+        )}
         {memos.length === 0 ? (
           <div className="empty-state"><div style={{ fontSize: '40px' }}>📝</div><p>작성된 메모가 없습니다.</p></div>
         ) : (
@@ -213,7 +222,9 @@ function MemosTab({ teamId }: { teamId: number }) {
                 onClick={() => setSelectedMemo(selectedMemo === m.id ? null : m.id)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ fontWeight: 600 }}>{m.title}</div>
-                  <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteMemoMut.mutate(m.id); }}>삭제</button>
+                  {(isLeader || m.author_id === user?.id) && (
+                    <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteMemoMut.mutate(m.id); }}>삭제</button>
+                  )}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
                   {m.author_name} · {new Date(m.created_at).toLocaleDateString('ko-KR')}
@@ -304,13 +315,26 @@ export default function TeamPage() {
     onSuccess: () => navigate('/'),
   });
 
-  if (!team) return <div style={{ padding: '40px', color: 'var(--text-muted)' }}>불러오는 중...</div>;
+  // 내 역할 확인 (리더만 관리 권한 부여)
+  const { user } = useAuthStore();
+  const { data: members = [], isLoading: isMembersLoading } = useQuery<TeamMember[]>({
+    queryKey: ['members', id],
+    queryFn: () => teamsApi.getMembers(id).then((r) => r.data),
+  });
+
+  const myRole = members.find((m) => Number(m.user_id) === Number(user?.id))?.role;
+  const isLeader = myRole === 'leader';
+
+  if (!team || isMembersLoading) return <div style={{ padding: '40px', color: 'var(--text-muted)' }}>불러오는 중...</div>;
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 24px' }}>
       {/* 팀 헤더 */}
       <div className="card" style={{ marginBottom: '32px', display: 'flex', gap: '24px', alignItems: 'center' }}>
-        <label style={{ cursor: 'pointer' }} title="이미지 수정">
+        <label 
+          style={{ cursor: isLeader ? 'pointer' : 'default' }} 
+          title={isLeader ? "이미지 수정" : ""}
+        >
           <div style={{
             width: 80, height: 80, borderRadius: '20px', overflow: 'hidden',
             background: 'var(--accent-dim)', display: 'flex', alignItems: 'center',
@@ -321,8 +345,10 @@ export default function TeamPage() {
               ? <img src={team.image_path} alt={team.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : team.name.slice(0, 2).toUpperCase()}
           </div>
-          <input type="file" accept="image/*" style={{ display: 'none' }}
-            onChange={(e) => e.target.files?.[0] && uploadImageMut.mutate(e.target.files[0])} />
+          {isLeader && (
+            <input type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => e.target.files?.[0] && uploadImageMut.mutate(e.target.files[0])} />
+          )}
         </label>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: '24px', fontWeight: 800 }}>{team.name}</h1>
@@ -331,10 +357,13 @@ export default function TeamPage() {
             📅 {new Date(team.created_at).toLocaleDateString('ko-KR')} 생성
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => { setEditName(team.name); setShowEdit(true); }}>수정</button>
-          <button className="btn btn-danger btn-sm" onClick={() => window.confirm('팀을 삭제하시겠습니까?') && deleteMut.mutate()}>삭제</button>
-        </div>
+        
+        {isLeader && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setEditName(team.name); setShowEdit(true); }}>수정</button>
+            <button className="btn btn-danger btn-sm" onClick={() => window.confirm('팀을 삭제하시겠습니까?') && deleteMut.mutate()}>삭제</button>
+          </div>
+        )}
       </div>
 
       {/* 탭 */}
@@ -346,9 +375,9 @@ export default function TeamPage() {
         ))}
       </div>
 
-      {tab === 'members' && <MembersTab teamId={id} />}
-      {tab === 'schedules' && <SchedulesTab teamId={id} />}
-      {tab === 'memos' && <MemosTab teamId={id} />}
+      {tab === 'members' && <MembersTab teamId={id} isLeader={isLeader} />}
+      {tab === 'schedules' && <SchedulesTab teamId={id} isLeader={isLeader} />}
+      {tab === 'memos' && <MemosTab teamId={id} isLeader={isLeader} />}
 
       {/* 팀 이름 수정 모달 */}
       {showEdit && (
