@@ -59,6 +59,23 @@ def create_schedule(
         created_by=current_user.id
     )
     db.add(schedule)
+    db.flush() # id 확보
+    
+    # 담당자 일괄 배정 및 알림
+    for uid in (schedule_in.assignees or []):
+        tm = db.query(TeamMember).filter(TeamMember.team_id == schedule.team_id, TeamMember.user_id == uid).first()
+        if tm:
+            db.add(ScheduleAssignee(schedule_id=schedule.id, user_id=uid))
+            if uid != current_user.id:
+                db.add(AppNotification(
+                    receiver_id=uid,
+                    sender_id=current_user.id,
+                    type=NotificationType.SCHEDULE_ASSIGN,
+                    title="새로운 일정 배정",
+                    content=f"'{schedule.title}' 일정의 담당자로 배정되었습니다.",
+                    related_id=schedule.id
+                ))
+
     db.commit()
     db.refresh(schedule)
     return schedule
@@ -103,7 +120,30 @@ def update_schedule(
         schedule.end_time = schedule_in.end_time
     if schedule_in.status is not None:
         schedule.status = schedule_in.status
+    
+    # 담당자 목록 교체 및 신규 배정자 알림
+    if schedule_in.assignees is not None:
+        # 기존 배정자 조회 (알림 중복 방지용)
+        existing_uids = {a.user_id for a in db.query(ScheduleAssignee).filter(ScheduleAssignee.schedule_id == schedule.id).all()}
         
+        # 전체 삭제 후 재등록 (가장 깔끔함)
+        db.query(ScheduleAssignee).filter(ScheduleAssignee.schedule_id == schedule.id).delete()
+        
+        for uid in schedule_in.assignees:
+            tm = db.query(TeamMember).filter(TeamMember.team_id == schedule.team_id, TeamMember.user_id == uid).first()
+            if tm:
+                db.add(ScheduleAssignee(schedule_id=schedule.id, user_id=uid))
+                # 새롭게 추가된 사람에게만(작성자 제외) 알림 발송
+                if uid not in existing_uids and uid != current_user.id:
+                    db.add(AppNotification(
+                        receiver_id=uid,
+                        sender_id=current_user.id,
+                        type=NotificationType.SCHEDULE_ASSIGN,
+                        title="일정 담당자 배정",
+                        content=f"'{schedule.title}' 일정의 담당자로 지정되었습니다.",
+                        related_id=schedule.id
+                    ))
+
     db.commit()
     db.refresh(schedule)
     return schedule

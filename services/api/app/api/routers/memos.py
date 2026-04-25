@@ -49,7 +49,7 @@ def get_schedule_memos(
 # =======================================================
 # 메모 CRUD 파트
 # =======================================================
-@router.post("/", response_model=MemoResponse, summary="메모 작성", responses={**_401, **_403})
+@router.post("/", response_model=MemoDetailResponse, summary="메모 작성", responses={**_401, **_403})
 def create_memo(
     *,
     db: Session = Depends(deps.get_db),
@@ -107,7 +107,7 @@ def get_memo(
     return memo
 
 
-@router.put("/{memo_id}", response_model=MemoResponse, summary="메모 수정", responses={**_401, **_403, **_404})
+@router.put("/{memo_id}", response_model=MemoDetailResponse, summary="메모 수정", responses={**_401, **_403, **_404})
 def update_memo(
     memo_id: int,
     memo_in: MemoUpdate,
@@ -128,11 +128,25 @@ def update_memo(
     if memo_in.schedule_id is not None:
         memo.schedule_id = memo_in.schedule_id
 
-    # 멘션 교체 (명시적으로 제공된 경우에만)
+    # 멘션 교체 및 신규 멘션자 알림
     if memo_in.mentions is not None:
+        # 기존 멘션된 유저 정보 (알림 중복 방지용)
+        existing_mentions = {m.user_id for m in db.query(MemoMention).filter(MemoMention.memo_id == memo.id).all()}
+        
         db.query(MemoMention).filter(MemoMention.memo_id == memo.id).delete()
         for uid in memo_in.mentions:
             db.add(MemoMention(memo_id=memo.id, user_id=uid))
+            
+            # 새로 멘션된 사람에게만(작성자 제외) 알림 발송
+            if uid not in existing_mentions and uid != current_user.id:
+                db.add(AppNotification(
+                    receiver_id=uid,
+                    sender_id=current_user.id,
+                    type=NotificationType.MEMO_MENTION,
+                    title="메모 멘션",
+                    content=f"'{memo.title}' 메모에서 당신을 언급했습니다.",
+                    related_id=memo.id
+                ))
 
     db.commit()
     db.refresh(memo)
