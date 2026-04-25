@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 from typing import Optional
 
@@ -29,11 +29,11 @@ class TeamMemberCreate(BaseModel):
     role: str = "member"
 
 class TeamMemberResponse(BaseModel):
-    id: int
-    user_id: int
-    team_name: str
-    user_name: str
-    role: str
+    id: int = Field(..., description="멤버십 레코드 ID")
+    user_id: int = Field(..., description="사용자 고유 ID", example=5)
+    team_name: str = Field(..., description="소속 팀 이름", example="개발팀")
+    user_name: str = Field(..., description="사용자 이름", example="홍길동")
+    role: str = Field(..., description="팀 내 역할 (leader, member, guest)", example="member")
 
     class Config:
         from_attributes = True
