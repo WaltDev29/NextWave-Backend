@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.db.models import User
 from app.services.llm import llm_service
+from app.schemas.onboarding import OnboardingResponse
 
 router = APIRouter(prefix="/onboarding", tags=["✨ 온보딩 (Onboarding)"])
 
-@router.get("/guide", summary="개인화된 온보딩 가이드 데이터 조회")
+@router.get("/guide", summary="개인화된 온보딩 가이드 데이터 조회", response_model=OnboardingResponse)
 def get_onboarding_guide(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
