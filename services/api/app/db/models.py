@@ -27,6 +27,7 @@ class User(Base):
     job = Column(String(50), nullable=True)
     age = Column(Integer, nullable=False)
     gender = Column(String(10), nullable=True)
+    purpose = Column(Text, nullable=True)
     image_path = Column(String(255), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
