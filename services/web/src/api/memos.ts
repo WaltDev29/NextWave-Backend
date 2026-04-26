@@ -5,10 +5,10 @@ export const memosApi = {
   listByTeam: (teamId: number) =>
     apiClient.get<Memo[]>(`/teams/${teamId}/memos`),
   get: (id: number) => apiClient.get<MemoDetail>(`/memos/${id}`),
-  create: (data: { team_id: number; title: string; content?: string; schedule_id?: number }) =>
-    apiClient.post<Memo>('/memos/', data),
-  update: (id: number, data: { title?: string; content?: string }) =>
-    apiClient.put<Memo>(`/memos/${id}`, data),
+  create: (data: { team_id: number; title: string; content?: string; schedule_id?: number; mentions?: number[] }) =>
+    apiClient.post<MemoDetail>('/memos/', data),
+  update: (id: number, data: { title?: string; content?: string; mentions?: number[] }) =>
+    apiClient.put<MemoDetail>(`/memos/${id}`, data),
   delete: (id: number) => apiClient.delete(`/memos/${id}`),
 
   // Comments

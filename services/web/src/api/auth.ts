@@ -2,8 +2,8 @@ import apiClient from './client';
 import type { User } from '../types';
 
 export const authApi = {
-  signup: (email: string, username: string, password: string) =>
-    apiClient.post<User>('/users/signup', { email, username, password }),
+  signup: (data: { email: string; username: string; password: string; job?: string; age: number; gender?: string; purpose?: string }) =>
+    apiClient.post<User>('/users/signup', data),
 
   login: async (email: string, password: string): Promise<string> => {
     const form = new URLSearchParams();
@@ -21,7 +21,7 @@ export const authApi = {
 export const usersApi = {
   me: () => apiClient.get<User>('/users/me'),
 
-  updateMe: (data: { username?: string; password?: string }) =>
+  updateMe: (data: { username?: string; password?: string; job?: string; age?: number; gender?: string }) =>
     apiClient.put<User>('/users/me', data),
 
   uploadImage: (file: File) => {

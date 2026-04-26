@@ -8,8 +8,9 @@ export const schedulesApi = {
   create: (data: {
     team_id: number; title: string; start_time: string;
     end_time?: string; description?: string; status?: ScheduleStatus;
+    assignees?: number[];
   }) => apiClient.post<Schedule>('/schedules/', data),
-  update: (id: number, data: Partial<Omit<Schedule, 'id' | 'team_id' | 'created_at'>>) =>
+  update: (id: number, data: Partial<Omit<Schedule, 'id' | 'team_id' | 'created_at'>> & { assignees?: number[] }) =>
     apiClient.put<Schedule>(`/schedules/${id}`, data),
   patchStatus: (id: number, status: ScheduleStatus) =>
     apiClient.patch<Schedule>(`/schedules/${id}/status`, { status }),

@@ -83,20 +83,31 @@ function MembersTab({ teamId, isLeader }: { teamId: number; isLeader: boolean })
 
 // ===== 일정 탭 =====
 function SchedulesTab({ teamId, isLeader }: { teamId: number; isLeader: boolean }) {
-  const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [assignedUserIds, setAssignedUserIds] = useState<number[]>([]);
   const qc = useQueryClient();
   const { user } = useAuthStore();
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['members', teamId],
+    queryFn: () => teamsApi.getMembers(teamId).then((r) => r.data),
+  });
 
   const { data: schedules = [] } = useQuery({
     queryKey: ['schedules', teamId],
     queryFn: () => schedulesApi.listByTeam(teamId).then((r) => r.data),
   });
   const createMut = useMutation({
-    mutationFn: () => schedulesApi.create({ team_id: teamId, title, start_time: startTime, end_time: endTime || undefined }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules', teamId] }); setShowCreate(false); setTitle(''); setStartTime(''); setEndTime(''); },
+    mutationFn: () => schedulesApi.create({ 
+      team_id: teamId, title, start_time: startTime, end_time: endTime || undefined,
+      assignees: assignedUserIds 
+    }),
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['schedules', teamId] }); 
+      setShowCreate(false); setTitle(''); setStartTime(''); setEndTime(''); setAssignedUserIds([]);
+    },
   });
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: number; status: ScheduleStatus }) =>
@@ -128,6 +139,15 @@ function SchedulesTab({ teamId, isLeader }: { teamId: number; isLeader: boolean 
                   {new Date(s.start_time).toLocaleString('ko-KR')}
                   {s.end_time ? ` ~ ${new Date(s.end_time).toLocaleString('ko-KR')}` : ''}
                 </div>
+                {s.assignees?.length > 0 && (
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    {s.assignees.map(a => (
+                      <span key={a.id} style={{ fontSize: '11px', background: 'var(--bg-elevated)', padding: '2px 8px', borderRadius: '4px', color: 'var(--accent-light)' }}>
+                        @{a.user_name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <select value={s.status}
                 onChange={(e) => statusMut.mutate({ id: s.id, status: e.target.value as ScheduleStatus })}
@@ -152,6 +172,23 @@ function SchedulesTab({ teamId, isLeader }: { teamId: number; isLeader: boolean 
               <div className="form-group"><label>제목 *</label><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="일정 제목" /></div>
               <div className="form-group"><label>시작 시간 *</label><input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></div>
               <div className="form-group"><label>종료 시간</label><input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} /></div>
+              
+              <div className="form-group">
+                <label>담당자 지정 (다중 선택 가능)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '120px', overflowY: 'auto', padding: '10px', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                  {members.map(m => (
+                    <button key={m.id} 
+                      onClick={() => setAssignedUserIds(prev => prev.includes(m.user_id) ? prev.filter(id => id !== m.user_id) : [...prev, m.user_id])}
+                      style={{ 
+                        padding: '4px 10px', borderRadius: '20px', fontSize: '12px', border: 'none', cursor: 'pointer', transition: '0.2s',
+                        background: assignedUserIds.includes(m.user_id) ? 'var(--accent)' : 'var(--bg-elevated)',
+                        color: assignedUserIds.includes(m.user_id) ? '#fff' : 'var(--text-main)'
+                      }}>
+                      {m.user_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>취소</button>
@@ -169,6 +206,7 @@ function MemosTab({ teamId, isLeader }: { teamId: number; isLeader: boolean }) {
   const [showCreate, setShowCreate] = useState(false);
   const [memoTitle, setMemoTitle] = useState('');
   const [memoContent, setMemoContent] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<number[]>([]);
   const [selectedMemo, setSelectedMemo] = useState<number | null>(null);
   const [comment, setComment] = useState('');
   const qc = useQueryClient();
@@ -192,8 +230,11 @@ function MemosTab({ teamId, isLeader }: { teamId: number; isLeader: boolean }) {
     enabled: !!selectedMemo,
   });
   const createMut = useMutation({
-    mutationFn: () => memosApi.create({ team_id: teamId, title: memoTitle, content: memoContent }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['memos', teamId] }); setShowCreate(false); setMemoTitle(''); setMemoContent(''); },
+    mutationFn: () => memosApi.create({ team_id: teamId, title: memoTitle, content: memoContent, mentions: mentionedUserIds }),
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['memos', teamId] }); 
+      setShowCreate(false); setMemoTitle(''); setMemoContent(''); setMentionedUserIds([]);
+    },
   });
   const commentMut = useMutation({
     mutationFn: () => selectedMemo ? memosApi.createComment(selectedMemo, comment) : Promise.reject(),
@@ -240,6 +281,13 @@ function MemosTab({ teamId, isLeader }: { teamId: number; isLeader: boolean }) {
       {selectedMemo && memoDetail && (
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '70vh', overflow: 'hidden' }}>
           <div style={{ fontWeight: 700, fontSize: '16px' }}>{memoDetail.title}</div>
+          {memoDetail.mentions && memoDetail.mentions.length > 0 && (
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {memoDetail.mentions.map(m => (
+                <span key={m.id} style={{ fontSize: '12px', color: 'var(--accent-light)', fontWeight: 600 }}>@{m.user_name}</span>
+              ))}
+            </div>
+          )}
           <hr className="divider" style={{ margin: '0' }} />
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {(memoDetail.comments || []).map((c) => (
@@ -273,6 +321,22 @@ function MemosTab({ teamId, isLeader }: { teamId: number; isLeader: boolean }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-group"><label>제목 *</label><input value={memoTitle} onChange={(e) => setMemoTitle(e.target.value)} placeholder="메모 제목" /></div>
               <div className="form-group"><label>내용</label><textarea value={memoContent} onChange={(e) => setMemoContent(e.target.value)} placeholder="내용 입력..." rows={4} style={{ resize: 'vertical' }} /></div>
+              <div className="form-group">
+                <label>팀원 멘션</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                  {members.map(m => (
+                    <button key={m.id} 
+                      onClick={() => setMentionedUserIds(prev => prev.includes(m.user_id) ? prev.filter(id => id !== m.user_id) : [...prev, m.user_id])}
+                      style={{ 
+                        padding: '4px 10px', borderRadius: '20px', fontSize: '12px', border: 'none', cursor: 'pointer',
+                        background: mentionedUserIds.includes(m.user_id) ? 'var(--accent)' : 'var(--bg-elevated)',
+                        color: mentionedUserIds.includes(m.user_id) ? '#fff' : 'var(--text-main)'
+                      }}>
+                      {m.user_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>취소</button>

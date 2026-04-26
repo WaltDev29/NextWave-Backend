@@ -8,6 +8,10 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [job, setJob] = useState('');
+  const [age, setAge] = useState<string>('');
+  const [gender, setGender] = useState('');
+  const [purpose, setPurpose] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { setToken, setUser } = useAuthStore();
@@ -19,7 +23,15 @@ export default function AuthPage() {
     setLoading(true);
     try {
       if (tab === 'signup') {
-        await authApi.signup(email, username, password);
+        const ageNum = parseInt(age);
+        if (isNaN(ageNum)) throw new Error('나이를 정확히 입력해주세요.');
+        await authApi.signup({
+          email, username, password,
+          job: job || undefined,
+          age: ageNum,
+          gender: gender || undefined,
+          purpose: purpose || undefined,
+        });
       }
       const token = await authApi.login(email, password);
       setToken(token);
@@ -75,11 +87,41 @@ export default function AuthPage() {
                 onChange={(e) => setEmail(e.target.value)} required />
             </div>
             {tab === 'signup' && (
-              <div className="form-group">
-                <label>이름</label>
-                <input type="text" placeholder="닉네임" value={username}
-                  onChange={(e) => setUsername(e.target.value)} required />
-              </div>
+              <>
+                <div className="form-group">
+                  <label>이름 *</label>
+                  <input type="text" placeholder="닉네임" value={username}
+                    onChange={(e) => setUsername(e.target.value)} required />
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label>나이 *</label>
+                    <input type="number" placeholder="만 나이" value={age}
+                      onChange={(e) => setAge(e.target.value)} required />
+                  </div>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label>성별</label>
+                    <select value={gender} onChange={(e) => setGender(e.target.value)}
+                      style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-main)', fontSize: '14px' }}>
+                      <option value="">성별 선택</option>
+                      <option value="남">남성</option>
+                      <option value="여">여성</option>
+                      <option value="무관">무관</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>직업</label>
+                  <input type="text" placeholder="직장인, 학생 등" value={job}
+                    onChange={(e) => setJob(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>사용 목적</label>
+                  <textarea placeholder="어떤 용도로 사용하시나요?" value={purpose}
+                    onChange={(e) => setPurpose(e.target.value)} rows={2}
+                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-main)', fontSize: '14px', resize: 'none' }} />
+                </div>
+              </>
             )}
             <div className="form-group">
               <label>비밀번호</label>

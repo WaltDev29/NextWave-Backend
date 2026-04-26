@@ -4,6 +4,9 @@ export interface User {
   id: number;
   email: string;
   username: string;
+  job: string | null;
+  age: number;
+  gender: string | null;
   image_path: string | null;
   created_at: string;
 }
@@ -36,6 +39,7 @@ export interface Schedule {
   start_time: string;
   end_time: string | null;
   status: ScheduleStatus;
+  assignees: ScheduleAssignee[];
   created_at: string;
 }
 
@@ -43,6 +47,7 @@ export interface ScheduleAssignee {
   id: number;
   schedule_id: number;
   user_id: number;
+  user_name: string;
 }
 
 export interface Memo {
@@ -56,6 +61,12 @@ export interface Memo {
   created_at: string;
 }
 
+export interface MemoMention {
+  id: number;
+  user_id: number;
+  user_name: string;
+}
+
 export interface Comment {
   id: number;
   memo_id: number;
@@ -66,6 +77,7 @@ export interface Comment {
 }
 
 export interface MemoDetail extends Memo {
+  mentions: MemoMention[];
   comments: Comment[];
 }
 
