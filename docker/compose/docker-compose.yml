@@ -25,3 +25,30 @@ services:
       - ../../services/api:/app
     depends_on:
       - db
+
+  front:
+    build:
+      context: ../../services/front
+      dockerfile: dockerfile
+    container_name: nextwave-front
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../env/.env.front
+    # volumes:
+    #   - ../../services/front:/workspace
+    #   - /workspace/node_modules
+    #   - /workspace/.next
+    restart: always
+
+  proxy:
+    build:
+      context: ../../services/proxy
+      dockerfile: Dockerfile
+    container_name: nextwave-proxy
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+      - front
+    restart: always
