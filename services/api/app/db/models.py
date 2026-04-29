@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, BigInteger, String, Text, DateTime, ForeignKey, Enum, Boolean
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import enum
 from app.db.database import Base
 
@@ -54,7 +54,7 @@ class TeamMember(Base):
     role = Column(Enum(RoleEnum), nullable=False)
 
     team = relationship("Team", back_populates="members")
-    user = relationship("User", backref="team_memberships")
+    user = relationship("User", backref=backref("team_memberships", cascade="all, delete-orphan"))
 
     @property
     def team_name(self):
@@ -79,6 +79,7 @@ class Schedule(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     team = relationship("Team", back_populates="schedules")
+    creator = relationship("User", backref=backref("created_schedules", cascade="all, delete-orphan"))
     # 관계 설정: 일정 삭제 시 연관된 담당자 및 알림도 삭제
     assignees = relationship("ScheduleAssignee", back_populates="schedule", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="schedule", cascade="all, delete-orphan")
@@ -91,7 +92,7 @@ class ScheduleAssignee(Base):
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     schedule = relationship("Schedule", back_populates="assignees")
-    user = relationship("User")
+    user = relationship("User", backref=backref("schedule_assignments", cascade="all, delete-orphan"))
 
     @property
     def user_name(self):
@@ -110,7 +111,7 @@ class Memo(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     team = relationship("Team", back_populates="memos")
-    author = relationship("User")
+    author = relationship("User", backref=backref("memos", cascade="all, delete-orphan"))
     schedule = relationship("Schedule")
     mentions = relationship("MemoMention", backref="memo", cascade="all, delete-orphan")
     comments = relationship("Comment", backref="memo", cascade="all, delete-orphan")
@@ -130,7 +131,7 @@ class MemoMention(Base):
     memo_id = Column(Integer, ForeignKey("memos.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
-    user = relationship("User")
+    user = relationship("User", backref=backref("memo_mentions", cascade="all, delete-orphan"))
 
     @property
     def user_name(self):
@@ -145,7 +146,7 @@ class Comment(Base):
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
-    author = relationship("User")
+    author = relationship("User", backref=backref("comments", cascade="all, delete-orphan"))
 
     @property
     def author_name(self):
@@ -162,7 +163,7 @@ class Notification(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     schedule = relationship("Schedule", back_populates="notifications")
-    user = relationship("User")
+    user = relationship("User", backref=backref("notifications_settings", cascade="all, delete-orphan"))
 
 class AppNotification(Base):
     __tablename__ = "app_notifications"
@@ -177,5 +178,5 @@ class AppNotification(Base):
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
 
-    receiver = relationship("User", foreign_keys=[receiver_id], backref="notifications")
+    receiver = relationship("User", foreign_keys=[receiver_id], backref=backref("app_notifications", cascade="all, delete-orphan"))
     sender = relationship("User", foreign_keys=[sender_id])
