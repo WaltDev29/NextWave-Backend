@@ -111,12 +111,17 @@ class Memo(Base):
 
     team = relationship("Team", back_populates="memos")
     author = relationship("User")
+    schedule = relationship("Schedule")
     mentions = relationship("MemoMention", backref="memo", cascade="all, delete-orphan")
     comments = relationship("Comment", backref="memo", cascade="all, delete-orphan")
 
     @property
     def author_name(self):
         return self.author.username if self.author else "알 수 없음"
+
+    @property
+    def schedule_title(self):
+        return self.schedule.title if self.schedule else None
 
 class MemoMention(Base):
     __tablename__ = "memo_mentions"

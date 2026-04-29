@@ -1,7 +1,7 @@
 import math
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api import deps
 from app.db.models import Memo, MemoMention, Comment, User, RoleEnum, AppNotification, NotificationType
@@ -30,7 +30,7 @@ def get_team_memos(
 ):
     """팀의 전체 메모 목록 (최신순)"""
     deps.check_team_membership(db, team_id, current_user.id)
-    return db.query(Memo).filter(Memo.team_id == team_id).order_by(Memo.created_at.desc()).all()
+    return db.query(Memo).options(joinedload(Memo.schedule)).filter(Memo.team_id == team_id).order_by(Memo.created_at.desc()).all()
 
 
 @schedule_memos_router.get("/{schedule_id}/memos", response_model=List[MemoResponse], summary="일정 종속 메모 목록", responses={**_401, **_403})
@@ -40,7 +40,7 @@ def get_schedule_memos(
     current_user: User = Depends(deps.get_current_user),
 ):
     """특정 일정에 달린 메모 목록"""
-    memos = db.query(Memo).filter(Memo.schedule_id == schedule_id).order_by(Memo.created_at.desc()).all()
+    memos = db.query(Memo).options(joinedload(Memo.schedule)).filter(Memo.schedule_id == schedule_id).order_by(Memo.created_at.desc()).all()
     if memos:
         deps.check_team_membership(db, memos[0].team_id, current_user.id)
     return memos
@@ -100,7 +100,7 @@ def get_memo(
     current_user: User = Depends(deps.get_current_user),
 ):
     """메모 단건 상세 조회 (멘션 유저 및 댓글 목록 포함)"""
-    memo = db.query(Memo).filter(Memo.id == memo_id).first()
+    memo = db.query(Memo).options(joinedload(Memo.schedule)).filter(Memo.id == memo_id).first()
     if not memo:
         raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
     deps.check_team_membership(db, memo.team_id, current_user.id)
