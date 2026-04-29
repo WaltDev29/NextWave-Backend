@@ -4,6 +4,7 @@ from app.api import deps
 from app.db.models import User
 from app.services.llm import llm_service
 from app.schemas.onboarding import OnboardingResponse
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="/onboarding", tags=["✨ 온보딩 (Onboarding)"])
 
@@ -23,8 +24,12 @@ def get_onboarding_guide(
         "purpose": current_user.purpose
     }
     
+    # 현재 시간 (KST 기준, YYYY-MM-DDTHH:MM 형식)
+    kst = timezone(timedelta(hours=9))
+    current_time = datetime.now(kst).strftime("%Y-%m-%dT%H:%M")
+    
     # LLM을 통해 유저 맞춤형 데이터 생성
-    onboarding_data = llm_service.generate_onboarding_data(user_profile)
+    onboarding_data = llm_service.generate_onboarding_data(user_profile, current_time)
     
     return {
         "user_name": current_user.username,
