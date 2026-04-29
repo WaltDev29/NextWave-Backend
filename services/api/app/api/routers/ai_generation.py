@@ -85,6 +85,14 @@ def create_contextual_example(
         {"id": u.id, "username": u.username} for u in team_members
     ]
     
+    # 사용자 프로필 정보 구성 (LLM이 사용자 성향을 파악할 수 있도록)
+    user_profile = {
+        "job": current_user.job,
+        "age": current_user.age,
+        "gender": current_user.gender,
+        "purpose": current_user.purpose
+    }
+    
     # 현재 시간
     kst = timezone(timedelta(hours=9))
     current_time = datetime.now(kst).strftime("%Y-%m-%d %H:%M")
@@ -96,7 +104,8 @@ def create_contextual_example(
         recent_memos=recent_memos,
         team_members=member_list,
         current_time=current_time,
-        current_user_id=current_user.id
+        current_user_id=current_user.id,
+        user_profile=user_profile
     )
     
     return result
