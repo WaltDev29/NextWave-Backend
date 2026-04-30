@@ -50,6 +50,7 @@ class MemoResponse(BaseModel):
     author_name: str
     team_id: int
     schedule_id: Optional[int] = None
+    schedule_title: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

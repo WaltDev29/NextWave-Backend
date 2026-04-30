@@ -6,7 +6,7 @@ from sqlalchemy import text
 from pathlib import Path
 from app.core.config import settings
 from app.db.database import get_db
-from app.api.routers import auth, users, teams, schedules, memos, notifications, app_notifications
+from app.api.routers import auth, users, teams, schedules, memos, notifications, app_notifications, onboarding, ai_router
 
 import os
 
@@ -68,5 +68,6 @@ def create_app() -> FastAPI:
     app.include_router(memos.schedule_memos_router, prefix=settings.API_V1_STR)
     app.include_router(notifications.router, prefix=settings.API_V1_STR)
     app.include_router(app_notifications.router, prefix=settings.API_V1_STR)
+    app.include_router(ai_router, prefix=settings.API_V1_STR)
 
     return app

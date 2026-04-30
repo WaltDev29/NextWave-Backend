@@ -12,3 +12,4 @@ PyJWT>=2.8.0
 python-multipart>=0.0.9
 pytest>=7.4.0
 httpx>=0.25.0
+openai>=1.0.0
