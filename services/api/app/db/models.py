@@ -64,6 +64,10 @@ class TeamMember(Base):
     def user_name(self):
         return self.user.username if self.user else "알 수 없음"
 
+    @property
+    def user_email(self):
+        return self.user.email if self.user else "알 수 없음"
+
 class Schedule(Base):
     __tablename__ = "schedules"
 
