@@ -33,6 +33,7 @@ class TeamMemberResponse(BaseModel):
     user_id: int = Field(..., description="사용자 고유 ID", example=5)
     team_name: str = Field(..., description="소속 팀 이름", example="개발팀")
     user_name: str = Field(..., description="사용자 이름", example="홍길동")
+    user_email: str = Field(..., description="사용자 이메일", example="user@example.com")
     role: str = Field(..., description="팀 내 역할 (leader, member, guest)", example="member")
 
     class Config:
