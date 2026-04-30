@@ -36,6 +36,7 @@ def create_user(*, db: Session = Depends(deps.get_db), user_in: UserCreate):
         job=user_in.job,
         age=user_in.age,
         gender=user_in.gender,
+        purpose=user_in.purpose,
     )
     db.add(user)
     db.commit()
@@ -105,6 +106,8 @@ def update_user_me(
         current_user.age = user_in.age
     if user_in.gender is not None:
         current_user.gender = user_in.gender
+    if user_in.purpose is not None:
+        current_user.purpose = user_in.purpose
     db.commit()
     db.refresh(current_user)
     logger.info("[유저 정보 수정] user_id=%s", current_user.id)

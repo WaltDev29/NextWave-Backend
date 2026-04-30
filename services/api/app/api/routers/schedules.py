@@ -231,16 +231,17 @@ def add_assignees(
             assignee = ScheduleAssignee(schedule_id=schedule_id, user_id=uid)
             db.add(assignee)
             
-            # 알림 생성
-            noti = AppNotification(
-                receiver_id=uid,
-                sender_id=current_user.id,
-                type=NotificationType.SCHEDULE_ASSIGN,
-                title="새로운 일정 배정",
-                content=f"'{schedule.title}' 일정의 담당자로 배정되었습니다.",
-                related_id=schedule_id
-            )
-            db.add(noti)
+            # 알림 생성 (본인이 아닐 때만)
+            if uid != current_user.id:
+                noti = AppNotification(
+                    receiver_id=uid,
+                    sender_id=current_user.id,
+                    type=NotificationType.SCHEDULE_ASSIGN,
+                    title="새로운 일정 배정",
+                    content=f"'{schedule.title}' 일정의 담당자로 배정되었습니다.",
+                    related_id=schedule_id
+                )
+                db.add(noti)
             
     db.commit()
     return {"detail": "담당자 배정 완료"}

@@ -8,12 +8,12 @@ class UserBase(BaseModel):
     job: Optional[str] = Field(None, description="직업 (직장인, 학생, 주부 등)", example="직장인")
     age: int = Field(..., description="나이 (세)", example=25)
     gender: Optional[str] = Field(None, description="성별 (남, 여, 무관)", example="남")
+    purpose: Optional[str] = Field(None, description="서비스 사용 목적", example="업무 및 일정 관리")
     image_path: Optional[str] = Field(None, description="프로필 이미지 경로")
 
-# 생성 프로퍼티 (회원가입 시에만 사용 목적을 받음)
+# 생성 프로퍼티
 class UserCreate(UserBase):
     password: str = Field(..., description="비밀번호")
-    purpose: Optional[str] = Field(None, description="서비스 사용 목적 (DB 저장 안함)", example="업무 및 일정 관리")
 
 # 일반 정보 업데이트 (이미지는 PATCH /me/image 로 따로 처리)
 class UserUpdate(BaseModel):
@@ -22,6 +22,7 @@ class UserUpdate(BaseModel):
     job: Optional[str] = Field(None, description="수정할 직업", example="학생")
     age: Optional[int] = Field(None, description="수정할 나이", example=22)
     gender: Optional[str] = Field(None, description="수정할 성별", example="여")
+    purpose: Optional[str] = Field(None, description="수정할 서비스 사용 목적", example="가족 일정 공유")
 
 # 응답 모델 (비밀번호 제외)
 class UserResponse(UserBase):
