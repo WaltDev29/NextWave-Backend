@@ -1,4 +1,4 @@
-version: '3.8'
+name: nextwave
 
 services:
   db:
@@ -51,4 +51,6 @@ services:
     depends_on:
       - api
       - front
+    environment:
+      - APP_ENV=production
     restart: always
