@@ -56,3 +56,9 @@ logs/
 # Local Database files (e.g. SQLite)
 *.sqlite3
 *.db
+
+
+# Image files
+*.jpg
+*.png
+*.gif
