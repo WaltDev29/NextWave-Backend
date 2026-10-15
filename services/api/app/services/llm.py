@@ -7,22 +7,26 @@ import logging
 logger = logging.getLogger(__name__)
 
 class LLMService:
-    def __init__(self):
-        # LLM_BASE_URL이 있으면 외부 모델, 없으면 OpenAI 기본 사용
-        if settings.LLM_BASE_URL:
-            self.client = OpenAI(
-                api_key="APIKEY",
-                base_url=settings.LLM_BASE_URL,
+    def __init__(self, base_url: str = None):
+        self.base_url = base_url or settings.LLM_BASE_URL
+        self.client = self._create_client(self.base_url)
+
+    def _create_client(self, base_url: str = None) -> OpenAI:
+        target_base_url = base_url or self.base_url or settings.LLM_BASE_URL
+        if target_base_url:
+            logger.info(f"Using external LLM: {target_base_url}")
+            return OpenAI(
+                api_key=settings.OPENAI_API_KEY or "APIKEY",
+                base_url=target_base_url,
                 default_headers={"User-Agent": "Mozilla/5.0"},
             )
-            logger.info(f"Using external LLM: {settings.LLM_BASE_URL}")
         else:
-            self.client = OpenAI(
+            logger.info("Using OpenAI service")
+            return OpenAI(
                 api_key=settings.OPENAI_API_KEY
             )
-            logger.info("Using OpenAI service")
 
-    def generate_onboarding_data(self, user_profile: dict, current_time: str) -> dict:
+    def generate_onboarding_data(self, user_profile: dict, current_time: str, base_url: str = None) -> dict:
         """
         사용자 정보를 기반으로 예시 일정과 예시 메모를 생성하고,
         가장 먼저 학습해야 할 핵심 기능을 추천합니다.
@@ -72,7 +76,8 @@ NextWave 프로젝트 협업 플랫폼의 온보딩 가이드를 위한 예시 �
 """
 
         try:
-            response = self.client.chat.completions.create(
+            client = self._create_client(base_url) if base_url else self.client
+            response = client.chat.completions.create(
                 model=settings.LLM_MODEL,
                 messages=[
                     {"role": "system", "content": "너는 협업 플랫폼 온보딩을 위해 사용자가 직접 작성한 듯한 예시 데이터를 생성하고 핵심 기능을 추천하는 정밀한 AI야. 제안하는 말투를 지양하고 JSON 형식으로만 응답해."},
@@ -108,7 +113,8 @@ NextWave 프로젝트 협업 플랫폼의 온보딩 가이드를 위한 예시 �
         team_members: list,
         current_time: str,
         current_user_id: int,
-        user_profile: dict = None
+        user_profile: dict = None,
+        base_url: str = None
     ) -> dict:
         """
         사용자의 최근 일정과 메모, 그리고 프로필 정보를 기반으로 다음 예상 일정 혹은 메모를 생성합니다.
@@ -197,7 +203,8 @@ NextWave 협업 플랫폼에서 사용자의 최근 활동 내역과 프로필 �
 """
 
         try:
-            response = self.client.chat.completions.create(
+            client = self._create_client(base_url) if base_url else self.client
+            response = client.chat.completions.create(
                 model=settings.LLM_MODEL,
                 messages=[
                     {"role": "system", "content": "너는 사용자의 업무 맥락을 파악하여 다음 행동을 예측하는 스마트한 비서야. JSON 형식으로만 응답해."},
